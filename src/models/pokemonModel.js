@@ -7,7 +7,7 @@ const P = new Pokedex({
   hostName: 'pokeapi.co',
   versionPath: '/api/v2/',
   cacheLimit: 100 * 1000, // 100s
-  timeout: 5 * 1000, // 5s
+  timeout: 5 * 1000 // 5s
 });
 
 const SEARCH_LIMIT = 893; // Excluding pokemons 100xx (No images available)
@@ -30,13 +30,11 @@ export const getPokemonDetails = async (query) => {
 };
 
 export const getListItems = async (params) => {
-  const itemList = await P.getPokemonsList({
-    limit: SEARCH_LIMIT,
-  });
+  const itemList = await loadPokemonList();
   let list = itemList.results;
   if (params.ids) {
     const idsArray = params.ids.split(',');
-    list = list.filter(item => idsArray.includes(item.name));
+    list = list.filter((item) => idsArray.includes(item.name));
   }
   if (params.listType === 'random') {
     list = getRandomList(list);
@@ -46,9 +44,7 @@ export const getListItems = async (params) => {
 };
 
 export const searchListItems = async (params, limit, offset) => {
-  const itemList = await P.getPokemonsList({
-    limit: SEARCH_LIMIT,
-  });
+  const itemList = await loadPokemonList();
   const results = itemList.results.filter((item) => item.name.includes(params.q));
   const list = getChunk(results, params.limit, params.offset);
   return getItems(list, params);
@@ -57,23 +53,36 @@ export const searchListItems = async (params, limit, offset) => {
 export const getDetails = async (id, lang) => {
   const [pokemon, species] = await Promise.all([P.getPokemonByName(id), P.getPokemonSpeciesByName(id)]);
   const code = formatCode(pokemon.id);
-  return pokemon && {
-    id,
-    code,
-    name: pokemon.name,
-    slug: pokemon.name,
-    types: mapTypes(pokemon.types),
-    image: getPokemonImage(code),
-    tName: species && translateName(species.names, lang),
-    color: species?.color?.name,
-    evolvesFromId: species?.evolves_from_species && species?.evolves_from_species.name,
-    abilities: pokemon.abilities && pokemon.abilities.map((item) => item.ability.name),
-    weight: pokemon.weight,
-    height: pokemon.height,
-    stats: mapStats(pokemon.stats),
-    category: '',
-    description: '',
-  };
+  return (
+    pokemon && {
+      id,
+      code,
+      name: pokemon.name,
+      slug: pokemon.name,
+      types: mapTypes(pokemon.types),
+      image: getPokemonImage(code),
+      tName: species && translateName(species.names, lang),
+      color: species?.color?.name,
+      evolvesFromId: species?.evolves_from_species && species?.evolves_from_species.name,
+      abilities: pokemon.abilities && pokemon.abilities.map((item) => item.ability.name),
+      weight: pokemon.weight,
+      height: pokemon.height,
+      stats: mapStats(pokemon.stats),
+      category: '',
+      description: ''
+    }
+  );
+};
+
+let pokemonList; // This data is reused between serverless functions invocations
+const loadPokemonList = async () => {
+  if (!pokemonList) {
+    // Loading pokemon list. This is only run during cold start and then cached
+    pokemonList = await P.getPokemonsList({
+      limit: SEARCH_LIMIT
+    });
+  }
+  return pokemonList;
 };
 
 const parseParams = (query) => {
@@ -92,7 +101,7 @@ const getItem = async (id) => {
     name: pokemon.name,
     slug: pokemon.name,
     types: mapTypes(pokemon.types),
-    image: getPokemonImage(code),
+    image: getPokemonImage(code)
   };
 };
 
